@@ -9,7 +9,7 @@ pipeline {
         GIT_REPO           = 'https://github.com/vasukumgit/ter-infras.git'
         GIT_BRANCH         = 'main'
         TF_DIR             = 'Desktop/tr/terraform1'
-        APP_DIR            = 'templatemo_604_christmas_piano'
+        APP_DIR            = 'Desktop/tr/templatemo_604_christmas_piano'
         AWS_DEFAULT_REGION = 'us-east-2'
         AMI_ID             = 'ami-06e3c045d79fd65d9'
         KEY_NAME           = 'jsm'
@@ -108,27 +108,33 @@ pipeline {
         }
 
         stage('Deploy Application to EC2') {
-            when {
-                expression { params.ACTION == 'apply' }
-            }
-            steps {
-                sshagent(credentials: ['ec2-ssh-key']) {
-                    sh """
-                        sleep 30
-                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
-                            sudo mkdir -p /var/www/html/app
-                        '
+    when {
+        expression { params.ACTION == 'apply' }
+    }
+    steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+            sh """
+                echo "Workspace: \$(pwd)"
+                test -d "${APP_DIR}" || { echo "APP_DIR not found: ${APP_DIR}"; exit 1; }
+                ls -la "${APP_DIR}"
 
-                        scp -o StrictHostKeyChecking=no -r ${APP_DIR}/* ubuntu@${EC2_IP}:/tmp/
+                sleep 30
 
-                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
-                            sudo cp -r /tmp/* /var/www/html/app/
-                            sudo systemctl restart nginx
-                        '
-                    """
-                }
-            }
+                ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
+                    sudo mkdir -p /var/www/html/app
+                    mkdir -p /tmp/app
+                '
+
+                scp -o StrictHostKeyChecking=no -r "${APP_DIR}/." ubuntu@${EC2_IP}:/tmp/app/
+
+                ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
+                    sudo cp -r /tmp/app/. /var/www/html/app/
+                    sudo systemctl restart nginx
+                '
+            """
         }
+    }
+}
 
         stage('Terraform Destroy') {
             when {

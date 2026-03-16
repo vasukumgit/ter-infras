@@ -52,8 +52,8 @@ pipeline {
                 dir("${TF_DIR}") {
                     withCredentials([usernamePassword(
                         credentialsId: 'aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        usernameVariable: 'Access key id',
+                        passwordVariable: 'Secret access key'
                     )]) {
                         sh '''
                             aws sts get-caller-identity
@@ -75,8 +75,8 @@ pipeline {
                 dir("${TF_DIR}") {
                     withCredentials([usernamePassword(
                         credentialsId: 'aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        usernameVariable: 'Access key id',
+                        passwordVariable: 'Secret access key'
                     )]) {
                         sh 'terraform apply -auto-approve tfplan'
                     }
@@ -92,8 +92,8 @@ pipeline {
                 dir("${TF_DIR}") {
                     withCredentials([usernamePassword(
                         credentialsId: 'aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        usernameVariable: 'Access key id',
+                        passwordVariable: 'Secret access key'
                     )]) {
                         script {
                             env.EC2_IP = sh(
@@ -138,8 +138,8 @@ pipeline {
                 dir("${TF_DIR}") {
                     withCredentials([usernamePassword(
                         credentialsId: 'aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                        usernameVariable: 'Access key id',
+                        passwordVariable: 'Secret access key'
                     )]) {
                         sh '''
                             aws sts get-caller-identity

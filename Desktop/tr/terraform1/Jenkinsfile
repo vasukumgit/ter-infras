@@ -49,7 +49,7 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withEnv([
-                        "AWS_ACCESS_KEY_ID=${credentials('Access key ID')}",
+                        "AWS_ACCESS_KEY_ID=${credentials('Access key id')}",
                         "AWS_SECRET_ACCESS_KEY=${credentials('Secret access key')}"
                     ]) {
                         sh 'terraform plan -out=tfplan'
@@ -65,7 +65,7 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withEnv([
-                        "AWS_ACCESS_KEY_ID=${credentials('Access key ID')}",
+                        "AWS_ACCESS_KEY_ID=${credentials('Access key id')}",
                         "AWS_SECRET_ACCESS_KEY=${credentials('Secret access key')}"
                     ]) {
                         sh 'terraform apply -auto-approve tfplan'
@@ -119,7 +119,7 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withEnv([
-                        "AWS_ACCESS_KEY_ID=${credentials('Access key ID')}",
+                        "AWS_ACCESS_KEY_ID=${credentials('Access key id')}",
                         "AWS_SECRET_ACCESS_KEY=${credentials('Secret access key')}"
                     ]) {
                         sh 'terraform destroy -auto-approve'

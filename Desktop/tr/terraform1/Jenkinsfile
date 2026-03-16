@@ -8,7 +8,7 @@ pipeline {
     environment {
         GIT_REPO      = 'https://github.com/vasukumgit/ter-infras.git'
         GIT_BRANCH    = 'main'
-        TF_DIR        = 'terraform1'
+        TF_DIR        = 'Desktop/tr/terraform1'
         APP_DIR       = 'templatemo_604_christmas_piano'
         AWS_DEFAULT_REGION = 'us-east-2'
     }
@@ -65,8 +65,8 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withEnv([
-                        "AWS_ACCESS_KEY_ID=${credentials('aws-access-key-id')}",
-                        "AWS_SECRET_ACCESS_KEY=${credentials('aws-secret-access-key')}"
+                        "AWS_ACCESS_KEY_ID=${credentials('Access key ID')}",
+                        "AWS_SECRET_ACCESS_KEY=${credentials('Secret access key')}"
                     ]) {
                         sh 'terraform apply -auto-approve tfplan'
                     }
@@ -119,8 +119,8 @@ pipeline {
             steps {
                 dir("${TF_DIR}") {
                     withEnv([
-                        "AWS_ACCESS_KEY_ID=${credentials('aws-access-key-id')}",
-                        "AWS_SECRET_ACCESS_KEY=${credentials('aws-secret-access-key')}"
+                        "AWS_ACCESS_KEY_ID=${credentials('Access key ID')}",
+                        "AWS_SECRET_ACCESS_KEY=${credentials('Secret access key')}"
                     ]) {
                         sh 'terraform destroy -auto-approve'
                     }

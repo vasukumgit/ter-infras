@@ -6,11 +6,13 @@ pipeline {
     }
 
     environment {
-        GIT_REPO      = 'https://github.com/vasukumgit/ter-infras.git'
-        GIT_BRANCH    = 'main'
-        TF_DIR        = 'Desktop/tr/terraform1'
-        APP_DIR       = 'templatemo_604_christmas_piano'
+        GIT_REPO           = 'https://github.com/vasukumgit/ter-infras.git'
+        GIT_BRANCH         = 'main'
+        TF_DIR             = 'Desktop/tr/terraform1'
+        APP_DIR            = 'templatemo_604_christmas_piano'
         AWS_DEFAULT_REGION = 'us-east-2'
+        AMI_ID             = 'ami-06e3c045d79fd65d9'
+        KEY_NAME           = 'jsm'
     }
 
     stages {
@@ -48,11 +50,18 @@ pipeline {
             }
             steps {
                 dir("${TF_DIR}") {
-                    withEnv([
-                        "AWS_ACCESS_KEY_ID=${credentials('Access key id')}",
-                        "AWS_SECRET_ACCESS_KEY=${credentials('Secret access key')}"
-                    ]) {
-                        sh 'terraform plan -out=tfplan'
+                    withCredentials([usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
+                        sh '''
+                            aws sts get-caller-identity
+                            terraform plan \
+                              -var="ami_id=${AMI_ID}" \
+                              -var="key_name=${KEY_NAME}" \
+                              -out=tfplan
+                        '''
                     }
                 }
             }
@@ -64,10 +73,11 @@ pipeline {
             }
             steps {
                 dir("${TF_DIR}") {
-                    withEnv([
-                        "AWS_ACCESS_KEY_ID=${credentials('Access key id')}",
-                        "AWS_SECRET_ACCESS_KEY=${credentials('Secret access key')}"
-                    ]) {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
                         sh 'terraform apply -auto-approve tfplan'
                     }
                 }
@@ -79,12 +89,20 @@ pipeline {
                 expression { params.ACTION == 'apply' }
             }
             steps {
-                script {
-                    env.EC2_IP = sh(
-                        script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip",
-                        returnStdout: true
-                    ).trim()
-                    echo "EC2 Public IP: ${env.EC2_IP}"
+                dir("${TF_DIR}") {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
+                        script {
+                            env.EC2_IP = sh(
+                                script: 'terraform output -raw ec2_public_ip',
+                                returnStdout: true
+                            ).trim()
+                            echo "EC2 Public IP: ${env.EC2_IP}"
+                        }
+                    }
                 }
             }
         }
@@ -118,11 +136,17 @@ pipeline {
             }
             steps {
                 dir("${TF_DIR}") {
-                    withEnv([
-                        "AWS_ACCESS_KEY_ID=${credentials('Access key id')}",
-                        "AWS_SECRET_ACCESS_KEY=${credentials('Secret access key')}"
-                    ]) {
-                        sh 'terraform destroy -auto-approve'
+                    withCredentials([usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
+                        sh '''
+                            aws sts get-caller-identity
+                            terraform destroy -auto-approve \
+                              -var="ami_id=${AMI_ID}" \
+                              -var="key_name=${KEY_NAME}"
+                        '''
                     }
                 }
             }

@@ -1,0 +1,170 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Terraform action')
+    }
+
+    environment {
+        GIT_REPO           = 'https://github.com/vasukumgit/ter-infras.git'
+        GIT_BRANCH         = 'main'
+        TF_DIR             = 'Desktop/tr/terraform1'
+        APP_DIR            = 'Desktop/tr/templatemo_604_christmas_piano'
+        AWS_DEFAULT_REGION = 'us-east-2'
+        AMI_ID             = 'ami-06e3c045d79fd65d9'
+        KEY_NAME           = 'jsm'
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                git branch: "${GIT_BRANCH}", url: "${GIT_REPO}"
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                dir("${TF_DIR}") {
+                    sh 'terraform init'
+                }
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                dir("${TF_DIR}") {
+                    sh 'terraform validate'
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                dir("${TF_DIR}") {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
+                        sh '''
+                            aws sts get-caller-identity
+                            terraform plan \
+                              -var="ami_id=${AMI_ID}" \
+                              -var="key_name=${KEY_NAME}" \
+                              -out=tfplan
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                dir("${TF_DIR}") {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
+                        sh 'terraform apply -auto-approve tfplan'
+                    }
+                }
+            }
+        }
+
+        stage('Get EC2 Public IP') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
+            steps {
+                dir("${TF_DIR}") {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
+                        script {
+                            env.EC2_IP = sh(
+                                script: 'terraform output -raw ec2_public_ip',
+                                returnStdout: true
+                            ).trim()
+                            echo "EC2 Public IP: ${env.EC2_IP}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Application to EC2') {
+    when {
+        expression { params.ACTION == 'apply' }
+    }
+    steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+            sh """
+                echo "Workspace: \$(pwd)"
+                test -d "${APP_DIR}" || { echo "APP_DIR not found: ${APP_DIR}"; exit 1; }
+                ls -la "${APP_DIR}"
+
+                sleep 30
+
+                ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
+                    sudo mkdir -p /var/www/html/app
+                    mkdir -p /tmp/app
+                '
+
+                scp -o StrictHostKeyChecking=no -r "${APP_DIR}/." ubuntu@${EC2_IP}:/tmp/app/
+
+                ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} '
+                    sudo cp -r /tmp/app/. /var/www/html/app/
+                    sudo systemctl restart nginx
+                '
+            """
+        }
+    }
+}
+
+        stage('Terraform Destroy') {
+            when {
+                expression { params.ACTION == 'destroy' }
+            }
+            steps {
+                dir("${TF_DIR}") {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )]) {
+                        sh '''
+                            aws sts get-caller-identity
+                            terraform destroy -auto-approve \
+                              -var="ami_id=${AMI_ID}" \
+                              -var="key_name=${KEY_NAME}"
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully"
+        }
+        failure {
+            echo "Pipeline failed"
+        }
+    }
+}
